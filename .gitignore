@@ -1,0 +1,11 @@
+﻿node_modules/
+vendor/
+.env
+.idea/
+.vscode/
+storage/
+dist/
+*.sqlite
+public/hot
+public/storage
+
