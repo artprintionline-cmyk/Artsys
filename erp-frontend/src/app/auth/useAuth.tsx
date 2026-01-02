@@ -56,6 +56,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [])
 
+  useEffect(() => {
+    // listen to logout events emitted by api interceptor
+    const handler = () => {
+      setToken(null)
+      setUser(null)
+      setIsAuthReady(true)
+    }
+
+    window.addEventListener('erp:logout', handler as EventListener)
+    return () => window.removeEventListener('erp:logout', handler as EventListener)
+  }, [])
+
   async function login(email: string, password: string) {
     try {
       const res = await api.post('/auth/login', { email, password })

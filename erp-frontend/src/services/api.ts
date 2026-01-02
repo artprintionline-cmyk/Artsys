@@ -32,10 +32,12 @@ api.interceptors.response.use(
     // Clear token on unauthorized to avoid redirect loops
     if (status === 401) {
       localStorage.removeItem('token')
-      // optional: trigger a full reload to let app auth detect logged-out state
+      // Emit a logout event so the app can react and clear auth state
       try {
-        window.location.replace('/login')
-      } catch (e) {}
+        window.dispatchEvent(new CustomEvent('erp:logout'))
+      } catch (e) {
+        // fallback: no-op
+      }
     }
     if (status === 403) {
       // tenant or forbidden
