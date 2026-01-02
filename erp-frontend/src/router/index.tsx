@@ -8,7 +8,12 @@ import Sidebar from '../components/Sidebar'
 import Header from '../components/Header'
 
 function PrivateRoute({ children }: { children: JSX.Element }) {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, isAuthReady } = useAuth()
+
+  // If auth state is still being validated, show a loading placeholder
+  if (!isAuthReady) {
+    return <div className="flex items-center justify-center h-screen">Carregando...</div>
+  }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />

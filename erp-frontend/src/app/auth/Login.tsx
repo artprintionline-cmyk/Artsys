@@ -12,11 +12,32 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({})
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError(null)
+    setFieldErrors({})
+
+    // client-side validation
+    const emailTrim = email.trim()
+    const passwordTrim = password
+    const errors: { email?: string; password?: string } = {}
+    if (!emailTrim) {
+      errors.email = 'Email é obrigatório'
+    } else {
+      // simple email regex
+      const re = /^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@(([^<>()[\]\\.,;:\s@\"]+\.)+[^<>()[\]\\.,;:\s@\"]{2,})$/i
+      if (!re.test(emailTrim)) errors.email = 'Email inválido'
+    }
+    if (!passwordTrim) errors.password = 'Senha é obrigatória'
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors)
+      setLoading(false)
+      return
+    }
     try {
       await login(email, password)
       navigate('/dashboard')
@@ -36,13 +57,28 @@ export default function Login() {
           <h2 className="text-2xl font-semibold">{t('app.title')}</h2>
         </div>
 
-        {error && <div className="mb-4 text-sm text-red-600">{error}</div>}
+        {error && <div role="alert" className="mb-4 text-sm text-red-600">{error}</div>}
 
-        <Input label={t('login.email')} value={email} onChange={(v) => setEmail(v)} type="email" />
-        <Input label={t('login.password')} value={password} onChange={(v) => setPassword(v)} type="password" />
+        <Input
+          label={t('login.email')}
+          value={email}
+          onChange={(v: string) => setEmail(v)}
+          type="email"
+        />
+        {fieldErrors.email && <div className="text-sm text-red-600 mb-2">{fieldErrors.email}</div>}
+
+        <Input
+          label={t('login.password')}
+          value={password}
+          onChange={(v: string) => setPassword(v)}
+          type="password"
+        />
+        {fieldErrors.password && <div className="text-sm text-red-600 mb-2">{fieldErrors.password}</div>}
 
         <div className="mt-6">
-          <Button type="submit" loading={loading}>{t('login.submit')}</Button>
+          <Button type="submit" loading={loading}>
+            {t('login.submit')}
+          </Button>
         </div>
       </form>
     </div>
