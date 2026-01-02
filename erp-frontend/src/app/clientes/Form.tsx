@@ -15,7 +15,9 @@ export default function ClienteForm() {
   async function fetchCliente(id: string) {
     try {
       const res = await clientesService.get(id)
-      setForm(res.data)
+      const payload = res?.data
+      const data = payload?.data ?? payload
+      setForm(data)
     } catch (err) {
       alert('Erro ao carregar cliente')
     }

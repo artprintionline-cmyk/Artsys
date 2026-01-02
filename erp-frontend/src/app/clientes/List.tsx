@@ -14,7 +14,9 @@ export default function ClientesList() {
     setLoading(true)
     try {
       const res = await clientesService.list()
-      setClientes(res.data || [])
+      const payload = res?.data
+      const list = Array.isArray(payload) ? payload : (payload?.data ?? [])
+      setClientes(Array.isArray(list) ? list : [])
     } catch (err) {
       alert('Erro ao carregar clientes')
     } finally {
