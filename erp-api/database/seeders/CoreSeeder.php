@@ -143,6 +143,7 @@ class CoreSeeder extends Seeder
         // Financeiro: financeiro + relatórios
         $financeiro->permissoes()->sync($byKey([
             'dashboard.view',
+            'produtos.view',
             'financeiro.view', 'financeiro.create', 'financeiro.pay', 'financeiro.delete',
             'compras.itens.view',
             'compras.compras.view', 'compras.compras.create',

@@ -8,12 +8,31 @@ function main() {
   const outDir = path.join(__dirname, '..', 'build');
   const outZip = path.join(outDir, 'backend.zip');
 
+  const shouldSkip = process.env.SKIP_BACKEND_ZIP === '1' || process.env.SKIP_BACKEND_ZIP === 'true';
+
   if (!fs.existsSync(path.join(backendDir, 'artisan'))) {
     console.error('Não encontrei o backend em ../erp-api (faltando artisan).');
     process.exit(1);
   }
 
   fs.mkdirSync(outDir, { recursive: true });
+
+  if (shouldSkip) {
+    if (fs.existsSync(outZip)) {
+      const size = fs.statSync(outZip).size;
+      if (size > 0) {
+        console.log(`SKIP_BACKEND_ZIP ativo: reutilizando backend.zip existente (${Math.round(size / 1024 / 1024)} MB)`);
+        return;
+      }
+
+      console.error('SKIP_BACKEND_ZIP ativo, mas build/backend.zip está vazio/corrompido. Rode o build uma vez sem SKIP_BACKEND_ZIP.');
+      process.exit(1);
+    }
+
+    console.error('SKIP_BACKEND_ZIP ativo, mas build/backend.zip não existe. Rode o build uma vez sem SKIP_BACKEND_ZIP.');
+    process.exit(1);
+  }
+
   if (fs.existsSync(outZip)) fs.unlinkSync(outZip);
 
   const sevenZip = path.join(__dirname, '..', 'node_modules', '7zip-bin', 'win', 'x64', '7za.exe');
