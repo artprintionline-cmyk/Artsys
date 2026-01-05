@@ -1,12 +1,12 @@
 {
   "name": "erp-desktop",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "private": true,
   "description": "ERP Desktop (Electron) - inicia Laravel local e abre a UI em janela.",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build": "node scripts/pack-backend.js && electron-builder",
+    "build": "node scripts/verify-bundled-php.js && node scripts/pack-backend.js && electron-builder",
     "serve-updates": "node scripts/serve-updates.js dist 5050"
   },
   "dependencies": {
@@ -35,6 +35,10 @@
       {
         "from": "build/backend.zip",
         "to": "backend.zip"
+      },
+      {
+        "from": "php",
+        "to": "php"
       },
       {
         "from": "../start-backend.bat",

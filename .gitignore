@@ -17,3 +17,8 @@ electron/dist/
 electron/build/backend.zip
 electron/build-electron.log
 
+# PHP embutido (não versionar binários)
+electron/php/*
+!electron/php/README.md
+!electron/php/php.ini
+

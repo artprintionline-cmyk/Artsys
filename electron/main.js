@@ -1,7 +1,8 @@
 const { app, BrowserWindow, dialog, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { spawn } = require('child_process');
+const { spawn, spawnSync } = require('child_process');
+const net = require('net');
 const waitOn = require('wait-on');
 const AdmZip = require('adm-zip');
 const log = require('electron-log');
@@ -142,21 +143,49 @@ function resolveStartBackendBat() {
 }
 
 function resolvePhpExe() {
-  // Preferências:
-  // 1) ERP_PHP_PATH (env) - explícito
-  // 2) php embutido: <resources>/php/php.exe (quando você incluir)
-  // 3) php do PATH (dev)
+  // Em produção (packaged): **sempre** usar PHP embutido.
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'php', 'php.exe');
+  }
+
+  // Dev: permitir override via ERP_PHP_PATH.
   const envPhp = process.env.ERP_PHP_PATH;
-  if (envPhp && exists(envPhp)) {
-    return envPhp;
-  }
+  if (envPhp && exists(envPhp)) return envPhp;
 
-  const bundledPhp = path.join(process.resourcesPath, 'php', 'php.exe');
-  if (exists(bundledPhp)) {
-    return bundledPhp;
-  }
-
+  // Dev: fallback para PATH.
   return 'php';
+}
+
+function resolveBundledPhpIniDir() {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'php');
+  }
+  return path.join(__dirname, 'php');
+}
+
+function ensurePortFree(host, port) {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer();
+    server.unref();
+    server.on('error', (err) => {
+      if (err && err.code === 'EADDRINUSE') {
+        return reject(
+          new Error(
+            [
+              `A porta ${port} já está em uso (${host}).`,
+              '',
+              'Feche o processo que está usando a porta 8000 e tente novamente.',
+              'Dica: no Windows, use: netstat -ano | findstr :8000',
+            ].join('\n')
+          )
+        );
+      }
+      return reject(err);
+    });
+    server.listen(port, host, () => {
+      server.close(() => resolve());
+    });
+  });
 }
 
 async function waitBackendReady(timeoutMs) {
@@ -339,7 +368,15 @@ function runMigrations(backendDir, phpExe) {
 
 function checkPhpHasSqliteExtensions(phpExe) {
   try {
-    const res = spawnSync(phpExe, ['-m'], { windowsHide: true, encoding: 'utf8' });
+    const res = spawnSync(phpExe, ['-m'], {
+      windowsHide: true,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        // Força carregar php.ini do bundle (importante em produção).
+        PHPRC: resolveBundledPhpIniDir(),
+      },
+    });
     const output = `${res.stdout || ''}\n${res.stderr || ''}`.toLowerCase();
     const hasPdoSqlite = output.includes('pdo_sqlite');
     const hasSqlite3 = output.includes('sqlite3');
@@ -500,6 +537,19 @@ async function startBackend() {
 
   const phpExe = resolvePhpExe();
 
+  // Em produção, PHP precisa existir dentro do app.
+  if (app.isPackaged && !exists(phpExe)) {
+    throw new Error(
+      [
+        'PHP embutido não encontrado dentro do aplicativo.',
+        '',
+        `Esperado em: ${phpExe}`,
+        '',
+        'Reinstale usando o instalador mais recente (que inclui o PHP).',
+      ].join('\n')
+    );
+  }
+
   // Se não achou php embutido e não está no PATH, vamos falhar com mensagem clara.
   if (phpExe !== 'php' && !exists(phpExe)) {
     throw new Error('PHP não encontrado.');
@@ -513,14 +563,24 @@ async function startBackend() {
       hasSqlite3: sqliteCheck.hasSqlite3,
     });
 
+    if (app.isPackaged) {
+      throw new Error(
+        [
+          'PHP embutido não possui extensões SQLite necessárias (pdo_sqlite/sqlite3).',
+          '',
+          'Reinstale usando o instalador mais recente (que inclui o PHP correto).',
+        ].join('\n')
+      );
+    }
+
     throw new Error(
       [
         'PHP não possui extensões SQLite necessárias (pdo_sqlite/sqlite3).',
         '',
         'O ERP Desktop usa SQLite no modo local.',
         '',
-        'Como resolver:',
-        '- Instale um PHP para Windows que inclua SQLite (recomendado).',
+        'Como resolver (dev):',
+        '- Instale um PHP para Windows que inclua SQLite.',
         '- Ou configure a variável ERP_PHP_PATH apontando para um php.exe com SQLite habilitado.',
       ].join('\n')
     );
@@ -532,12 +592,17 @@ async function startBackend() {
     ERP_PHP: phpExe,
     ERP_BACKEND_HOST: BACKEND_HOST,
     ERP_BACKEND_PORT: BACKEND_PORT,
+    // Garante que o php.exe carregue o php.ini do bundle.
+    PHPRC: resolveBundledPhpIniDir(),
   };
 
   // Garante instalação local (SQLite, migrations, seed) sem exigir terminal.
   await runErpInstallIfNeeded(backendDir, phpExe);
   // Sempre roda migrations no start (atualizações não devem quebrar schema).
   await runMigrations(backendDir, phpExe);
+
+  // Antes de subir o servidor, garanta que a porta esteja livre.
+  await ensurePortFree(BACKEND_HOST, Number(BACKEND_PORT));
 
   backendProcess = spawn('cmd.exe', ['/c', bat], {
     windowsHide: true,
@@ -551,7 +616,15 @@ async function startBackend() {
     backendProcess = null;
   });
 
-  await waitBackendReady(60_000);
+  // Espera o backend ficar pronto; se o processo morrer antes disso, falha com erro claro.
+  await Promise.race([
+    waitBackendReady(60_000),
+    new Promise((_, reject) => {
+      backendProcess.once('exit', (code) => {
+        reject(new Error(`Backend encerrou antes de ficar pronto (exit ${code}).`));
+      });
+    }),
+  ]);
 }
 
 function killBackend() {
@@ -628,7 +701,7 @@ if (!gotLock) {
           '',
           'Dicas:',
           '- Confirme que a porta 8000 está livre.',
-          '- Se estiver em produção, inclua um PHP embutido em resources/php/php.exe ou configure ERP_PHP_PATH.',
+          '- Reinstale usando o instalador mais recente (com PHP embutido).',
         ].join('\n')
       );
 
