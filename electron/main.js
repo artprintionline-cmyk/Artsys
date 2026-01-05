@@ -522,7 +522,10 @@ async function createMainWindow() {
     mainWindow.show();
   });
 
-  await mainWindow.loadURL(BACKEND_URL);
+  // Abrir direto no dashboard para evitar cair no /login quando o React Router
+  // não tem rota explícita para '/'. O PrivateRoute vai redirecionar para /login
+  // apenas quando não houver token.
+  await mainWindow.loadURL(`${BACKEND_URL}/dashboard`);
 
   mainWindow.on('closed', () => {
     mainWindow = null;
