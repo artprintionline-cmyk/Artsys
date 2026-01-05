@@ -297,8 +297,7 @@ function runErpInstallIfNeeded(backendDir, phpExe) {
   const envPath = path.join(backendDir, '.env');
   const dbPath = path.join(backendDir, 'storage', 'app', 'database.sqlite');
 
-  // Se já tem .env e DB, assume instalado (comando também é idempotente).
-  const args = ['artisan', 'erp:install', '--sqlite'];
+  const args = ['artisan', 'erp:install', '--sqlite', '--no-interaction'];
 
   return new Promise((resolve, reject) => {
     const child = spawn(phpExe, args, {
@@ -314,7 +313,7 @@ function runErpInstallIfNeeded(backendDir, phpExe) {
 
     child.on('error', reject);
     child.on('exit', (code) => {
-      // O comando agora retorna 0 mesmo quando já instalado.
+      // Setup terminou. Exit 0 nunca é erro aqui.
       if (code === 0) return resolve();
 
       // fallback: se os arquivos essenciais existem, não bloqueia startup.
@@ -332,6 +331,61 @@ function runErpInstallIfNeeded(backendDir, phpExe) {
       return reject(new Error(summary));
     });
   });
+}
+
+function needsErpInstall(backendDir, phpExe) {
+  const dbPath = path.join(backendDir, 'storage', 'app', 'database.sqlite');
+  if (!exists(dbPath)) {
+    return true;
+  }
+
+  // Detecta se já houve instalação: system_versions precisa ter ao menos 1 registro.
+  // Fazemos a checagem via PHP+PDO para não depender de binário sqlite.
+  try {
+    const dbPathForPhp = dbPath.replace(/\\/g, '/');
+    const code = [
+      '$p = ' + JSON.stringify(dbPathForPhp) + ';',
+      '$pdo = new PDO("sqlite:" . $p);',
+      '$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);',
+      '$has = $pdo->query("SELECT name FROM sqlite_master WHERE type=\'table\' AND name=\'system_versions\' LIMIT 1")->fetchColumn();',
+      'if (!$has) { echo "NEEDS_INSTALL"; exit(0); }',
+      '$count = (int) $pdo->query("SELECT COUNT(*) FROM system_versions")->fetchColumn();',
+      'echo $count > 0 ? "INSTALLED" : "NEEDS_INSTALL";',
+    ].join(' ');
+
+    const res = spawnSync(phpExe, ['-r', code], {
+      cwd: backendDir,
+      windowsHide: true,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        PHPRC: resolveBundledPhpIniDir(),
+      },
+    });
+
+    const out = `${res.stdout || ''}${res.stderr || ''}`.trim();
+    return out.includes('NEEDS_INSTALL');
+  } catch (e) {
+    // Se falhar a checagem, preferimos rodar o setup (idempotente).
+    return true;
+  }
+}
+
+function startLaravelServer(backendDir, phpExe, childEnv) {
+  // Processo long-running: esse é o backend principal.
+  const args = ['artisan', 'serve', '--host=127.0.0.1', '--port=8000'];
+
+  const child = spawn(phpExe, args, {
+    cwd: backendDir,
+    windowsHide: true,
+    env: childEnv,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+
+  child.stdout?.on('data', (d) => log.info('[backend] serve:', d.toString().trimEnd()));
+  child.stderr?.on('data', (d) => log.warn('[backend] serve err:', d.toString().trimEnd()));
+
+  return child;
 }
 
 function runMigrations(backendDir, phpExe) {
@@ -595,27 +649,28 @@ async function startBackend() {
     PHPRC: resolveBundledPhpIniDir(),
   };
 
-  // Garante instalação local (SQLite, migrations, seed) sem exigir terminal.
-  await runErpInstallIfNeeded(backendDir, phpExe);
-  // Sempre roda migrations no start (atualizações não devem quebrar schema).
+  // 1) Setup somente quando necessário (db ausente ou system_versions vazio)
+  if (needsErpInstall(backendDir, phpExe)) {
+    log.info('[backend] rodando erp:install (primeira instalação)');
+    await runErpInstallIfNeeded(backendDir, phpExe);
+  } else {
+    log.info('[backend] instalação já presente (system_versions ok)');
+  }
+
+  // 2) Após isso, garantir migrations (updates) e subir servidor persistente
   await runMigrations(backendDir, phpExe);
 
   // Antes de subir o servidor, garanta que a porta esteja livre.
   await ensurePortFree(BACKEND_HOST, Number(BACKEND_PORT));
 
-  backendProcess = spawn('cmd.exe', ['/c', bat], {
-    windowsHide: true,
-    env: childEnv,
-    stdio: 'ignore',
-  });
-
+  backendProcess = startLaravelServer(backendDir, phpExe, childEnv);
   startedBackend = true;
 
   backendProcess.on('exit', () => {
     backendProcess = null;
   });
 
-  // Espera o backend ficar pronto; se o processo morrer antes disso, falha com erro claro.
+  // 3) Esperar a porta 8000 responder; só então o Electron abre janela.
   await Promise.race([
     waitBackendReady(60_000),
     new Promise((_, reject) => {
