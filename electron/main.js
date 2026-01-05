@@ -276,8 +276,13 @@ function runErpInstallIfNeeded(backendDir, phpExe) {
     const child = spawn(phpExe, args, {
       cwd: backendDir,
       windowsHide: true,
-      stdio: 'ignore',
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
+
+    let out = '';
+    let err = '';
+    child.stdout?.on('data', (d) => (out += d.toString()));
+    child.stderr?.on('data', (d) => (err += d.toString()));
 
     child.on('error', reject);
     child.on('exit', (code) => {
@@ -286,7 +291,17 @@ function runErpInstallIfNeeded(backendDir, phpExe) {
 
       // fallback: se os arquivos essenciais existem, não bloqueia startup.
       if (exists(envPath) && exists(dbPath)) return resolve();
-      return reject(new Error(`erp:install falhou (exit ${code}).`));
+
+      const summary = [
+        `erp:install falhou (exit ${code}).`,
+        out ? `\nSTDOUT:\n${out.trim()}` : '',
+        err ? `\nSTDERR:\n${err.trim()}` : '',
+      ]
+        .filter(Boolean)
+        .join('\n');
+
+      log.error('[backend] erp:install falhou', summary);
+      return reject(new Error(summary));
     });
   });
 }
@@ -296,15 +311,42 @@ function runMigrations(backendDir, phpExe) {
     const child = spawn(phpExe, ['artisan', 'migrate', '--force'], {
       cwd: backendDir,
       windowsHide: true,
-      stdio: 'ignore',
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
+
+    let out = '';
+    let err = '';
+    child.stdout?.on('data', (d) => (out += d.toString()));
+    child.stderr?.on('data', (d) => (err += d.toString()));
 
     child.on('error', reject);
     child.on('exit', (code) => {
       if (code === 0) return resolve();
-      return reject(new Error(`migrate falhou (exit ${code}).`));
+
+      const summary = [
+        `migrate falhou (exit ${code}).`,
+        out ? `\nSTDOUT:\n${out.trim()}` : '',
+        err ? `\nSTDERR:\n${err.trim()}` : '',
+      ]
+        .filter(Boolean)
+        .join('\n');
+
+      log.error('[backend] migrate falhou', summary);
+      return reject(new Error(summary));
     });
   });
+}
+
+function checkPhpHasSqliteExtensions(phpExe) {
+  try {
+    const res = spawnSync(phpExe, ['-m'], { windowsHide: true, encoding: 'utf8' });
+    const output = `${res.stdout || ''}\n${res.stderr || ''}`.toLowerCase();
+    const hasPdoSqlite = output.includes('pdo_sqlite');
+    const hasSqlite3 = output.includes('sqlite3');
+    return { ok: hasPdoSqlite || hasSqlite3, hasPdoSqlite, hasSqlite3, raw: output };
+  } catch (e) {
+    return { ok: false, hasPdoSqlite: false, hasSqlite3: false, raw: String(e) };
+  }
 }
 
 function setupAutoUpdate() {
@@ -461,6 +503,27 @@ async function startBackend() {
   // Se não achou php embutido e não está no PATH, vamos falhar com mensagem clara.
   if (phpExe !== 'php' && !exists(phpExe)) {
     throw new Error('PHP não encontrado.');
+  }
+
+  const sqliteCheck = checkPhpHasSqliteExtensions(phpExe);
+  if (!sqliteCheck.ok) {
+    log.error('[backend] PHP sem extensões SQLite', {
+      phpExe,
+      hasPdoSqlite: sqliteCheck.hasPdoSqlite,
+      hasSqlite3: sqliteCheck.hasSqlite3,
+    });
+
+    throw new Error(
+      [
+        'PHP não possui extensões SQLite necessárias (pdo_sqlite/sqlite3).',
+        '',
+        'O ERP Desktop usa SQLite no modo local.',
+        '',
+        'Como resolver:',
+        '- Instale um PHP para Windows que inclua SQLite (recomendado).',
+        '- Ou configure a variável ERP_PHP_PATH apontando para um php.exe com SQLite habilitado.',
+      ].join('\n')
+    );
   }
 
   const childEnv = {
