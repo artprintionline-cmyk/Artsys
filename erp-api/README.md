@@ -9,6 +9,24 @@
 
 ## About Laravel
 
+## ERP SaaS (Dev local)
+
+## Setup e atualização (SaaS)
+
+- Setup inicial (apenas se ainda não instalado): acesse `/setup`.
+- Atualização online (migrations + registro de versão): `php artisan system:update --force`.
+- Rollback simples (quando possível): `php artisan system:rollback --force`.
+
+Se aparecer "Credenciais inválidas" após resetar o banco (ex.: `migrate:fresh`), rode o seeder novamente:
+
+- `php artisan db:seed`
+
+Credenciais de teste (criadas pelo `DatabaseSeeder` / `CoreSeeder`):
+
+- `admin@teste.com` / `password`
+- `art@gmail.com` / `123`
+- `teste@teste.com` / `123`
+
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
 
 - [Simple, fast routing engine](https://laravel.com/docs/routing).

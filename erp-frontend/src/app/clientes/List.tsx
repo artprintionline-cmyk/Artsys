@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import clientesService from '../../services/clientesService'
+import PageContainer from '../../components/PageContainer'
 
 export default function ClientesList() {
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [clientes, setClientes] = useState<any[]>([])
 
@@ -35,43 +37,44 @@ export default function ClientesList() {
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-2xl font-semibold">Clientes</h2>
-        <Link to="/clientes/novo" className="bg-yellow-400 text-black px-3 py-1 rounded">Novo Cliente</Link>
-      </div>
-
-      {loading ? (
-        <div>Carregando...</div>
-      ) : (
-        <div className="overflow-auto bg-white rounded shadow">
-          <table className="min-w-full table-auto">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-2 text-left">Nome</th>
-                <th className="px-4 py-2 text-left">Telefone</th>
-                <th className="px-4 py-2 text-left">Email</th>
-                <th className="px-4 py-2 text-left">Status</th>
-                <th className="px-4 py-2">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {clientes.map((c) => (
-                <tr key={c.id} className="border-t">
-                  <td className="px-4 py-2">{c.nome}</td>
-                  <td className="px-4 py-2">{c.telefone}</td>
-                  <td className="px-4 py-2">{c.email}</td>
-                  <td className="px-4 py-2">{c.status || 'ativo'}</td>
-                  <td className="px-4 py-2 text-center">
-                    <Link to={`/clientes/${c.id}/editar`} className="text-blue-600 mr-3">Editar</Link>
-                    <button onClick={() => handleDelete(c.id)} className="text-red-600">Inativar</button>
-                  </td>
+    <div className="max-w-6xl mx-auto">
+      <PageContainer title="Clientes" actionLabel="Novo Cliente" onAction={() => navigate('/clientes/novo')}>
+        {loading ? (
+          <div className="text-sm text-gray-700">Carregando...</div>
+        ) : (
+          <div className="overflow-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-100 text-black">
+                <tr>
+                  <th className="p-3 text-left">Nome</th>
+                  <th className="p-3 text-left">Telefone</th>
+                  <th className="p-3 text-left">Email</th>
+                  <th className="p-3 text-left">Status</th>
+                  <th className="p-3 text-right">Ações</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              </thead>
+              <tbody>
+                {clientes.map((c) => (
+                  <tr key={c.id} className="border-t hover:bg-gray-50">
+                    <td className="p-3 text-black">{c.nome}</td>
+                    <td className="p-3 text-gray-800">{c.telefone}</td>
+                    <td className="p-3 text-gray-800">{c.email}</td>
+                    <td className="p-3 text-gray-800">{c.status || 'ativo'}</td>
+                    <td className="p-3 text-right whitespace-nowrap">
+                      <Link to={`/clientes/${c.id}/editar`} className="text-black hover:underline mr-4">
+                        Editar
+                      </Link>
+                      <button onClick={() => handleDelete(c.id)} className="text-black hover:underline">
+                        Desativar
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </PageContainer>
     </div>
   )
 }

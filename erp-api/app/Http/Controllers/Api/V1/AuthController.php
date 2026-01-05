@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use App\Models\User;
 
 class AuthController extends Controller
@@ -32,7 +33,10 @@ class AuthController extends Controller
             return response()->json(['message' => 'Empresa inativa.'], 403);
         }
 
-        $token = $user->createToken('api-token')->plainTextToken;
+        // Sanctum gera o valor do token de forma aleatória. Aqui também usamos um nome aleatório
+        // para evitar reutilização/colisão e facilitar auditoria por dispositivo/sessão.
+        $tokenName = 'api-' . Str::random(40);
+        $token = $user->createToken($tokenName)->plainTextToken;
 
         return response()->json([
             'token' => $token,

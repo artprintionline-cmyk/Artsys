@@ -8,8 +8,14 @@ class Empresa extends BaseModel
 
     protected $fillable = [
         'nome',
+        'email',
+        'telefone',
         'cnpj',
         'status',
+    ];
+
+    protected $casts = [
+        'status' => 'boolean',
     ];
 
     public function usuarios()

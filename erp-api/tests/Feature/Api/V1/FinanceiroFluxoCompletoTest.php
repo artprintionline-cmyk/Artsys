@@ -6,6 +6,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 use App\Models\Empresa;
 use App\Models\User;
+use App\Models\Perfil;
 use App\Models\Cliente;
 use App\Models\OrdemServico;
 use App\Models\ContaReceber;
@@ -19,11 +20,17 @@ class FinanceiroFluxoCompletoTest extends TestCase
         // Preparação: empresa, usuário, cliente
         $empresa = Empresa::create(['nome' => 'Empresa Financeiro', 'status' => true]);
 
+        $perfilAdmin = Perfil::create([
+            'empresa_id' => $empresa->id,
+            'nome' => 'admin',
+        ]);
+
         $user = User::create([
             'name' => 'User Financeiro',
             'email' => 'finance@test.com',
             'password' => 'password',
             'empresa_id' => $empresa->id,
+            'perfil_id' => $perfilAdmin->id,
             'status' => true,
         ]);
 

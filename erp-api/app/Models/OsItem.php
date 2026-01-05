@@ -13,6 +13,7 @@ class OsItem extends Model
         'ordem_servico_id',
         'produto_id',
         'quantidade',
+        'comprimento',
         'largura',
         'altura',
         'valor_unitario',

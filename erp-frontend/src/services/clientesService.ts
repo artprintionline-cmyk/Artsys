@@ -17,6 +17,9 @@ export default {
   get(id: number | string) {
     return api.get(`${base}/${id}`)
   },
+  financeiroResumo(id: number | string) {
+    return api.get(`${base}/${id}/financeiro-resumo`)
+  },
   create(payload: ClientePayload) {
     return api.post(base, payload)
   },

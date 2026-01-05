@@ -1,6 +1,8 @@
 ﻿node_modules/
 vendor/
 .env
+.env.*
+.env.bak*
 .idea/
 .vscode/
 storage/
@@ -8,4 +10,10 @@ dist/
 *.sqlite
 public/hot
 public/storage
+
+# Electron
+electron/node_modules/
+electron/dist/
+electron/build/backend.zip
+electron/build-electron.log
 

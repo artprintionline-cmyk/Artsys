@@ -23,6 +23,7 @@ class User extends Authenticatable
         'email',
         'password',
         'empresa_id',
+        'perfil_id',
         'status',
     ];
 
@@ -41,6 +42,36 @@ class User extends Authenticatable
         return $this->belongsTo(Empresa::class, 'empresa_id');
     }
 
+    public function perfil()
+    {
+        return $this->belongsTo(Perfil::class, 'perfil_id');
+    }
+
+    /**
+     * Retorna as chaves de permissões do usuário (via perfil).
+     * Admin pode ser tratado como acesso total.
+     *
+     * @return array<int,string>
+     */
+    public function permissoesChaves(): array
+    {
+        $perfil = $this->perfil;
+        if ($perfil && strtolower((string) $perfil->nome) === 'admin') {
+            return ['*'];
+        }
+
+        if (! $perfil) {
+            return [];
+        }
+
+        $perfil->loadMissing('permissoes');
+
+        /** @var array<int,string> $keys */
+        $keys = $perfil->permissoes->pluck('chave')->map(fn ($v) => (string) $v)->values()->all();
+
+        return $keys;
+    }
+
     /**
      * Get the attributes that should be cast.
      *
@@ -51,6 +82,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'status' => 'boolean',
         ];
     }
 }

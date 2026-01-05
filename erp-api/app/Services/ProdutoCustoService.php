@@ -16,15 +16,8 @@ class ProdutoCustoService
      */
     public function recalcularCusto(Produto $produto): float
     {
-        $total = $produto->produtoComponentes()
-            ->where('status', 'ativo')
-            ->sum('custo_total');
+        app(ProdutoVivoCalculoService::class)->recalcular($produto);
 
-        $valor = (float) $total;
-
-        $produto->custo_calculado = $valor;
-        $produto->save();
-
-        return $valor;
+        return (float) ($produto->custo_total ?? $produto->custo_calculado ?? 0);
     }
 }

@@ -13,6 +13,13 @@ class WhatsAppConfiguracao extends Model
         'provedor',
         'numero',
         'token',
+        'phone_number_id',
+        'verify_token',
+        'app_secret',
+        'api_version',
+        'auto_os_em_producao',
+        'auto_os_aguardando_pagamento_pix',
+        'auto_os_finalizada',
         'status',
     ];
 }

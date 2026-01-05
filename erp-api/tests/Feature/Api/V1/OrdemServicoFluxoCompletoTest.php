@@ -6,6 +6,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 use App\Models\Empresa;
 use App\Models\User;
+use App\Models\Perfil;
 use App\Models\Cliente;
 use App\Models\Produto;
 use App\Models\OrdemServico;
@@ -21,11 +22,17 @@ class OrdemServicoFluxoCompletoTest extends TestCase
         // 1) Preparação: empresa, usuário, cliente e produto
         $empresa = Empresa::create(['nome' => 'Empresa Teste', 'status' => true]);
 
+        $perfilAdmin = Perfil::create([
+            'empresa_id' => $empresa->id,
+            'nome' => 'admin',
+        ]);
+
         $user = User::create([
             'name' => 'User Teste',
             'email' => 'user@test.com',
             'password' => 'password',
             'empresa_id' => $empresa->id,
+            'perfil_id' => $perfilAdmin->id,
             'status' => true,
         ]);
 
@@ -41,6 +48,11 @@ class OrdemServicoFluxoCompletoTest extends TestCase
         $produto = Produto::create([
             'empresa_id' => $empresa->id,
             'nome' => 'Produto X',
+            'sku' => null,
+            'preco' => 100.00,
+            'forma_calculo' => 'unitario',
+            'custo_base' => 50.00,
+            'preco_base' => 100.00,
             'tipo_medida' => 'unitario',
             'preco_manual' => null,
             'markup' => null,
@@ -54,18 +66,25 @@ class OrdemServicoFluxoCompletoTest extends TestCase
             'cliente_id' => $cliente->id,
             'data_entrega' => now()->addDays(7)->toDateString(),
             'descricao' => 'Pedido teste',
+            'itens' => [
+                [
+                    'produto_id' => $produto->id,
+                    'quantidade' => 2,
+                ],
+            ],
         ];
 
         $resCreate = $this->postJson('api/v1/ordens-servico', $payloadOs);
         $resCreate->assertStatus(201);
 
-        $osId = $resCreate->json('id');
+        $osId = $resCreate->json('data.id');
+        $itemInicialId = $resCreate->json('data.itens.0.id');
 
         $this->assertDatabaseHas('ordens_servico', [
             'id' => $osId,
             'empresa_id' => $empresa->id,
-            'status_atual' => 'criada',
-            'valor_total' => 0,
+            'status_atual' => 'aberta',
+            'valor_total' => 200.00,
         ]);
 
         $ordem = OrdemServico::find($osId);
@@ -74,7 +93,7 @@ class OrdemServicoFluxoCompletoTest extends TestCase
         // 3) Adicionar item à OS
         $payloadItem = [
             'produto_id' => $produto->id,
-            'quantidade' => 2,
+            'quantidade' => 1,
         ];
 
         $resItem = $this->postJson("api/v1/ordens-servico/{$osId}/itens", $payloadItem);
@@ -86,34 +105,42 @@ class OrdemServicoFluxoCompletoTest extends TestCase
             'id' => $itemId,
             'ordem_servico_id' => $osId,
             'produto_id' => $produto->id,
-            'quantidade' => 2,
+            'quantidade' => 1,
             'valor_unitario' => 100.00,
-            'valor_total' => 200.00,
+            'valor_total' => 100.00,
             'status' => 'ativo',
         ]);
 
         // 4) Recalcular valor da OS (automático após adicionar item)
         $ordem->refresh();
-        $this->assertEquals(200.00, (float) $ordem->valor_total);
+        $this->assertEquals(300.00, (float) $ordem->valor_total);
 
         // 5) Alterar status da OS
         $resStatus = $this->postJson("api/v1/ordens-servico/{$osId}/status", ['status' => 'producao']);
         $resStatus->assertStatus(200);
 
         $ordem->refresh();
-        $this->assertEquals('producao', $ordem->status_atual);
+        $this->assertEquals('em_producao', $ordem->status_atual);
 
         $this->assertDatabaseHas('os_historico', [
             'ordem_servico_id' => $osId,
-            'status_novo' => 'producao',
+            'status_novo' => 'em_producao',
         ]);
 
-        // 6) Remover item da OS
-        $resRemove = $this->deleteJson("api/v1/ordens-servico/{$osId}/itens/{$itemId}");
-        $resRemove->assertStatus(200);
+        // 6) Remover itens da OS
+        $resRemoveAdicionado = $this->deleteJson("api/v1/ordens-servico/{$osId}/itens/{$itemId}");
+        $resRemoveAdicionado->assertStatus(200);
+
+        $resRemoveInicial = $this->deleteJson("api/v1/ordens-servico/{$osId}/itens/{$itemInicialId}");
+        $resRemoveInicial->assertStatus(200);
 
         $this->assertDatabaseHas('os_itens', [
             'id' => $itemId,
+            'status' => 'inativo',
+        ]);
+
+        $this->assertDatabaseHas('os_itens', [
+            'id' => $itemInicialId,
             'status' => 'inativo',
         ]);
 

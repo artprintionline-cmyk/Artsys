@@ -1,8 +1,23 @@
 import axios from 'axios'
 
-// Use relative base URL so built SPA is served by the same Laravel server
+function resolveBaseURL() {
+  const envURL = (import.meta as any)?.env?.VITE_API_URL
+  if (envURL && typeof envURL === 'string' && envURL.trim() !== '') {
+    return envURL.trim().replace(/\/$/, '')
+  }
+
+  // Dev: talk directly to local Laravel server
+  if ((import.meta as any)?.env?.DEV) {
+    return 'http://127.0.0.1:8000/api/v1'
+  }
+
+  // Prod/build: SPA served by the same Laravel server
+  return '/api/v1'
+}
+
+// Use relative base URL in build, absolute in dev
 const api = axios.create({
-  baseURL: '/api/v1',
+  baseURL: resolveBaseURL(),
   headers: {
     Accept: 'application/json',
     'Content-Type': 'application/json',

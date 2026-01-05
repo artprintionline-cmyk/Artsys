@@ -187,7 +187,7 @@ Set-Content -Path (Join-Path $seedersDir 'DatabaseSeeder.php') -Value $databaseS
 # 10) Rodar migrations e seeders
 Write-Host "Rodando migrations..."
 php artisan migrate --force
-Write-Host "Rodando seeders..."
+Write-Host "Rodando seeders (IMPORTANTE para criar usuários de teste)..."
 php artisan db:seed --force
 
 # 11) Final

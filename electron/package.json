@@ -1,0 +1,69 @@
+{
+  "name": "erp-desktop",
+  "version": "1.0.1",
+  "private": true,
+  "description": "ERP Desktop (Electron) - inicia Laravel local e abre a UI em janela.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "node scripts/pack-backend.js && electron-builder",
+    "serve-updates": "node scripts/serve-updates.js dist 5050"
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.10",
+    "electron-log": "^5.2.4",
+    "electron-updater": "^6.6.2",
+    "wait-on": "^8.0.3"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "electron": "^32.2.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.sistemasaas.erp",
+    "productName": "ERP",
+    "compression": "normal",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "build/backend.zip",
+        "to": "backend.zip"
+      },
+      {
+        "from": "../start-backend.bat",
+        "to": "start-backend.bat"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "build/icon.png",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "ERP"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "artprintionline-cmyk",
+        "repo": "Artsys",
+        "releaseType": "release",
+        "draft": false,
+        "prerelease": false
+      }
+    ]
+  }
+}

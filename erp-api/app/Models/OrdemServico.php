@@ -23,6 +23,11 @@ class OrdemServico extends Model
         return $this->hasMany(OsItem::class, 'ordem_servico_id');
     }
 
+    public function cliente()
+    {
+        return $this->belongsTo(Cliente::class, 'cliente_id');
+    }
+
     public function historicos()
     {
         return $this->hasMany(OsHistorico::class, 'ordem_servico_id');

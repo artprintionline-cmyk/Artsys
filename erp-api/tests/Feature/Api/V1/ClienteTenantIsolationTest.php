@@ -8,6 +8,7 @@ use Laravel\Sanctum\Sanctum;
 use App\Models\Empresa;
 use App\Models\User;
 use App\Models\Cliente;
+use App\Models\Perfil;
 use Illuminate\Support\Facades\Hash;
 
 class ClienteTenantIsolationTest extends TestCase
@@ -30,11 +31,22 @@ class ClienteTenantIsolationTest extends TestCase
         ]);
 
         // Create one user for each company
+        $perfilAdminA = Perfil::create([
+            'empresa_id' => $empresaA->id,
+            'nome' => 'admin',
+        ]);
+
+        $perfilAdminB = Perfil::create([
+            'empresa_id' => $empresaB->id,
+            'nome' => 'admin',
+        ]);
+
         $userA = User::create([
             'name' => 'User A',
             'email' => 'usera@teste.com',
             'password' => Hash::make('password'),
             'empresa_id' => $empresaA->id,
+            'perfil_id' => $perfilAdminA->id,
             'status' => 'ativo',
         ]);
 
@@ -43,6 +55,7 @@ class ClienteTenantIsolationTest extends TestCase
             'email' => 'userb@teste.com',
             'password' => Hash::make('password'),
             'empresa_id' => $empresaB->id,
+            'perfil_id' => $perfilAdminB->id,
             'status' => 'ativo',
         ]);
 

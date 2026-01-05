@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Hash;
 use Laravel\Sanctum\Sanctum;
 use App\Models\Empresa;
 use App\Models\User;
+use App\Models\Perfil;
 
 class ClienteStoreTest extends TestCase
 {
@@ -26,6 +27,7 @@ class ClienteStoreTest extends TestCase
             'email' => 'admin@teste.com',
             'password' => Hash::make('password'),
             'empresa_id' => $empresa->id,
+            'perfil_id' => Perfil::create(['empresa_id' => $empresa->id, 'nome' => 'admin'])->id,
             'status' => 'ativo',
         ]);
 

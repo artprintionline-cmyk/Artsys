@@ -10,13 +10,24 @@ class WhatsAppMensagem extends Model
 
     public $timestamps = false;
 
+    protected $casts = [
+        'payload' => 'array',
+    ];
+
     protected $fillable = [
         'empresa_id',
+        'ordem_servico_id',
         'cliente_id',
         'numero',
         'mensagem',
+        'direcao',
+        'tipo',
+        'provider_message_id',
         'status',
         'contexto',
         'referencia_id',
+        'payload',
+        'created_at',
+        'updated_at',
     ];
 }

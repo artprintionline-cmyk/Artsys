@@ -12,6 +12,9 @@ class WhatsAppTemplate extends Model
         'empresa_id',
         'chave',
         'conteudo',
+        'tipo',
+        'template_nome',
+        'template_linguagem',
         'ativo',
     ];
 }

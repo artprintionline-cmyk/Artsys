@@ -53,27 +53,31 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <form onSubmit={submit} className="w-full max-w-md p-8 bg-white rounded-lg shadow">
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 bg-primary rounded-full" />
+          <div className="w-10 h-10 bg-yellow-400 rounded-full" />
           <h2 className="text-2xl font-semibold">{t('app.title')}</h2>
         </div>
 
         {error && <div role="alert" className="mb-4 text-sm text-red-600">{error}</div>}
 
-        <Input
-          label={t('login.email')}
-          value={email}
-          onChange={(v: string) => setEmail(v)}
-          type="email"
-        />
-        {fieldErrors.email && <div className="text-sm text-red-600 mb-2">{fieldErrors.email}</div>}
+        <div className="space-y-4">
+          <Input
+            label={t('login.email')}
+            required
+            value={email}
+            onChange={(v: string) => setEmail(v)}
+            type="email"
+            error={fieldErrors.email}
+          />
 
-        <Input
-          label={t('login.password')}
-          value={password}
-          onChange={(v: string) => setPassword(v)}
-          type="password"
-        />
-        {fieldErrors.password && <div className="text-sm text-red-600 mb-2">{fieldErrors.password}</div>}
+          <Input
+            label={t('login.password')}
+            required
+            value={password}
+            onChange={(v: string) => setPassword(v)}
+            type="password"
+            error={fieldErrors.password}
+          />
+        </div>
 
         <div className="mt-6">
           <Button type="submit" loading={loading}>
