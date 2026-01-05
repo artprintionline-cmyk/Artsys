@@ -2,6 +2,42 @@ const path = require('path');
 const fs = require('fs');
 const { spawnSync } = require('child_process');
 
+function readTail(filePath, maxBytes) {
+  const stat = fs.statSync(filePath);
+  const len = stat.size;
+  const start = Math.max(0, len - maxBytes);
+  const fd = fs.openSync(filePath, 'r');
+  try {
+    const buf = Buffer.alloc(len - start);
+    fs.readSync(fd, buf, 0, buf.length, start);
+    return buf;
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+function isProbablyValidZip(filePath) {
+  try {
+    const fd = fs.openSync(filePath, 'r');
+    try {
+      const head = Buffer.alloc(4);
+      fs.readSync(fd, head, 0, 4, 0);
+      const sig = head.toString('binary');
+      const okHeader = sig === 'PK\x03\x04' || sig === 'PK\x05\x06' || sig === 'PK\x07\x08';
+      if (!okHeader) return false;
+    } finally {
+      fs.closeSync(fd);
+    }
+
+    // Procura o End Of Central Directory (EOCD) nos últimos ~66KB.
+    // Assinatura: 0x06054b50 ("PK\x05\x06")
+    const tail = readTail(filePath, 66 * 1024);
+    return tail.includes(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+  } catch {
+    return false;
+  }
+}
+
 function main() {
   const repoRoot = path.join(__dirname, '..', '..');
   const backendDir = path.join(repoRoot, 'erp-api');
@@ -20,12 +56,12 @@ function main() {
   if (shouldSkip) {
     if (fs.existsSync(outZip)) {
       const size = fs.statSync(outZip).size;
-      if (size > 0) {
+      if (size > 0 && isProbablyValidZip(outZip)) {
         console.log(`SKIP_BACKEND_ZIP ativo: reutilizando backend.zip existente (${Math.round(size / 1024 / 1024)} MB)`);
         return;
       }
 
-      console.error('SKIP_BACKEND_ZIP ativo, mas build/backend.zip está vazio/corrompido. Rode o build uma vez sem SKIP_BACKEND_ZIP.');
+      console.error('SKIP_BACKEND_ZIP ativo, mas build/backend.zip está vazio/corrompido. Rode o build uma vez sem SKIP_BACKEND_ZIP para regenerar.');
       process.exit(1);
     }
 
