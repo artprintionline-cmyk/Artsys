@@ -8,8 +8,13 @@ class SystemSettingsService
 {
     public function isInstalled(): bool
     {
-        $row = SystemSetting::query()->orderBy('id')->first();
-        return (bool) ($row?->installed ?? false);
+        try {
+            $row = SystemSetting::query()->orderBy('id')->first();
+            return (bool) ($row?->installed ?? false);
+        } catch (\Throwable) {
+            // Banco/tabela ainda não existe (primeira execução).
+            return false;
+        }
     }
 
     public function markInstalled(): void

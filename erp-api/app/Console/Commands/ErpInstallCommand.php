@@ -6,6 +6,7 @@ use App\Models\SystemVersion;
 use App\Services\SystemSettingsService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class ErpInstallCommand extends Command
@@ -23,20 +24,20 @@ class ErpInstallCommand extends Command
     {
         $force = (bool) $this->option('force');
 
-        if ($settings->isInstalled() && ! $force) {
-            $this->info('Sistema já está instalado.');
-            $this->line('Acesse: http://127.0.0.1:8000');
-            return self::SUCCESS;
-        }
-
         $this->info('Iniciando instalação...');
 
         $this->ensureEnvFile();
 
-        // Desktop: SQLite por padrão
+        // Desktop: SQLite por padrão. Precisa ser configurado ANTES de qualquer query.
         $useSqlite = (bool) $this->option('sqlite') || ((string) env('DB_CONNECTION') === 'sqlite');
         if ($useSqlite) {
             $this->configureSqlite();
+        }
+
+        if ($settings->isInstalled() && ! $force) {
+            $this->info('Sistema já está instalado.');
+            $this->line('Acesse: http://127.0.0.1:8000');
+            return self::SUCCESS;
         }
 
         if (! env('APP_KEY')) {
@@ -100,21 +101,51 @@ class ErpInstallCommand extends Command
 
     private function configureSqlite(): void
     {
-        $dbPath = database_path('database.sqlite');
+        // Desktop/Electron: sempre usar caminho absoluto em storage/app/database.sqlite
+        // (não usar database/database.sqlite nem caminhos relativos).
+        $dbPath = storage_path('app/database.sqlite');
+        $dbDir = dirname($dbPath);
+
+        if (! is_dir($dbDir)) {
+            @mkdir($dbDir, 0777, true);
+        }
+
         if (! file_exists($dbPath)) {
-            @mkdir(dirname($dbPath), 0777, true);
             touch($dbPath);
         }
+
+        // No Windows, usar '/' no .env evita erro de parsing do dotenv com "\".
+        $dbPathForEnv = str_replace('\\', '/', $dbPath);
 
         $this->setEnv([
             'APP_URL' => 'http://127.0.0.1:8000',
             'DB_CONNECTION' => 'sqlite',
-            'DB_DATABASE' => $dbPath,
+            'DB_DATABASE' => $dbPathForEnv,
             'DB_HOST' => '',
             'DB_PORT' => '',
             'DB_USERNAME' => '',
             'DB_PASSWORD' => '',
         ]);
+
+        // Importante: escrever no .env não altera o runtime atual.
+        // Então forçamos a config em memória para garantir que migrate/seed usem o caminho correto.
+        config([
+            'database.default' => 'sqlite',
+            'database.connections.sqlite.database' => $dbPathForEnv,
+        ]);
+
+        // Também atualiza env do processo (melhora compatibilidade com código que chama env()).
+        putenv('DB_CONNECTION=sqlite');
+        putenv('DB_DATABASE=' . $dbPathForEnv);
+        $_ENV['DB_CONNECTION'] = 'sqlite';
+        $_ENV['DB_DATABASE'] = $dbPathForEnv;
+
+        // Garante que não existe conexão antiga apontando para outro arquivo.
+        try {
+            DB::purge('sqlite');
+        } catch (\Throwable) {
+            // noop
+        }
 
         $this->info('SQLite configurado em: ' . $dbPath);
     }
@@ -149,7 +180,7 @@ class ErpInstallCommand extends Command
         }
 
         if (preg_match("/\\s|#|\"|'|=/", $value)) {
-            $escaped = str_replace(['\\\\', '"'], ['\\\\\\\\', '\\"'], $value);
+            $escaped = str_replace(['\\', '"'], ['\\\\', '\\"'], $value);
             return '"' . $escaped . '"';
         }
 
