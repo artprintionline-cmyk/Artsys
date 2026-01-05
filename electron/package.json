@@ -1,6 +1,6 @@
 {
   "name": "erp-desktop",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "private": true,
   "description": "ERP Desktop (Electron) - inicia Laravel local e abre a UI em janela.",
   "main": "main.js",
