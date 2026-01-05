@@ -254,7 +254,6 @@ async function ensureBackendSyncedIfNeeded(backendDir) {
 
     // Preservar configurações e dados locais:
     if (normalized === '.env') return true;
-    if (normalized === 'database/database.sqlite') return true;
 
     // Preservar uploads/arquivos do usuário.
     if (normalized.startsWith('storage/app/')) return true;
@@ -296,7 +295,7 @@ async function ensureBackendSyncedIfNeeded(backendDir) {
 
 function runErpInstallIfNeeded(backendDir, phpExe) {
   const envPath = path.join(backendDir, '.env');
-  const dbPath = path.join(backendDir, 'database', 'database.sqlite');
+  const dbPath = path.join(backendDir, 'storage', 'app', 'database.sqlite');
 
   // Se já tem .env e DB, assume instalado (comando também é idempotente).
   const args = ['artisan', 'erp:install', '--sqlite'];
